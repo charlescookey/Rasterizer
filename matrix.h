@@ -86,6 +86,13 @@ public:
     // Returns the translation matrix
     static matrix makeTranslation(float tx, float ty, float tz) {
         matrix m;
+        m.a[3] = tx;
+        m.a[7] = ty;
+        m.a[11] = tz;
+        return m;
+    }
+    static matrix makeTranslation_old(float tx, float ty, float tz) {
+        matrix m;
         m.identity();
         m.a[3] = tx;
         m.a[7] = ty;
@@ -99,7 +106,6 @@ public:
     // Returns the rotation matrix
     static matrix makeRotateZ(float aRad) {
         matrix m;
-        m.identity();
         m.a[0] = std::cos(aRad);
         m.a[1] = -std::sin(aRad);
         m.a[4] = std::sin(aRad);
@@ -113,7 +119,6 @@ public:
     // Returns the rotation matrix
     static matrix makeRotateX(float aRad) {
         matrix m;
-        m.identity();
         m.a[5] = std::cos(aRad);
         m.a[6] = -std::sin(aRad);
         m.a[9] = std::sin(aRad);
@@ -127,7 +132,6 @@ public:
     // Returns the rotation matrix
     static matrix makeRotateY(float aRad) {
         matrix m;
-        m.identity();
         m.a[0] = std::cos(aRad);
         m.a[2] = std::sin(aRad);
         m.a[8] = -std::sin(aRad);
@@ -150,7 +154,6 @@ public:
     static matrix makeScale(float s) {
         matrix m;
         s = max(s, 0.01f); // Ensure scaling factor is not too small
-        m.identity();
         m.a[0] = s;
         m.a[5] = s;
         m.a[10] = s;

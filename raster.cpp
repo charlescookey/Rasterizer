@@ -16,6 +16,9 @@
 #include "light.h"
 #include "triangle.h"
 
+
+#include "TestOptimisation.h"
+
 // Main rendering function that processes a mesh, transforms its vertices, applies lighting, and draws triangles on the canvas.
 // Input Variables:
 // - renderer: The Renderer object used for drawing.
@@ -65,7 +68,7 @@ void sceneTest() {
     // create light source {direction, diffuse intensity, ambient intensity}
     Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
     // camera is just a matrix
-    matrix camera = matrix::makeIdentity(); // Initialize the camera with identity matrix
+    matrix camera;// = matrix::makeIdentity(); // Initialize the camera with identity matrix
 
     bool running = true; // Main loop control variable
 
@@ -119,7 +122,7 @@ matrix makeRandomRotation() {
     case 0: return matrix::makeRotateX(rng.getRandomFloat(0.f, 2.0f * M_PI));
     case 1: return matrix::makeRotateY(rng.getRandomFloat(0.f, 2.0f * M_PI));
     case 2: return matrix::makeRotateZ(rng.getRandomFloat(0.f, 2.0f * M_PI));
-    default: return matrix::makeIdentity();
+    default: return matrix();//::makeIdentity();
     }
 }
 
@@ -189,7 +192,7 @@ void scene1() {
 // No input variables
 void scene2() {
     Renderer renderer;
-    matrix camera = matrix::makeIdentity();
+    matrix camera;// = matrix::makeIdentity();//UNROLL??//ALSO USE RESEVER SO IT DOESNT CREATE AND CAPACITY INSCREWASE
     Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
 
     std::vector<Mesh*> scene;
@@ -260,8 +263,12 @@ void scene2() {
 int main() {
     // Uncomment the desired scene function to run
     //scene1();
-    scene2();
+    //scene2();
     //sceneTest(); 
+
+    //redundantIdentityCall();
+    //memsetOverLoops();
+    clearSIMD();
     
 
     return 0;
