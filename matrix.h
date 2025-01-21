@@ -162,7 +162,7 @@ public:
 
     // Create an identity matrix
     // Returns an identity matrix
-    static matrix makeIdentity() {
+    static matrix makeIdentity_old() {
         matrix m;
         for (int i = 0; i < 4; ++i) {
             for (int j = 0; j < 4; ++j) {
@@ -171,21 +171,29 @@ public:
         }
         return m;
     }
+    static matrix makeIdentity() {
+        matrix m;
+        memset(m.a, 0, 16 * sizeof(float));
+        m.m[0][0] = 1.0f;
+        m.m[1][1] = 1.0f;
+        m.m[2][2] = 1.0f;
+        m.m[3][3] = 1.0f;
+        return m;
+    }
 
 private:
     // Set all elements of the matrix to 0
     void zero() {
-        for (unsigned int i = 0; i < 16; i++)
-            a[i] = 0.f;
+        memset(a, 0, 16 * sizeof(float));
     }
 
     // Set the matrix as an identity matrix
     void identity() {
-        for (int i = 0; i < 4; ++i) {
-            for (int j = 0; j < 4; ++j) {
-                m[i][j] = (i == j) ? 1.0f : 0.0f;
-            }
-        }
+        memset(a, 0, 16 * sizeof(float));
+        m[0][0] = 1.0f;
+        m[1][1] = 1.0f;
+        m[2][2] = 1.0f;
+        m[3][3] = 1.0f;
     }
 };
 

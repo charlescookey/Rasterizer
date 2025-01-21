@@ -24,3 +24,24 @@ void redundantIdentityCall() {
 		<< "ms...\n";
 }
 
+void memsetOverLoops() {
+	matrix temp;
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 2000; i++) {
+		temp = matrix::makeIdentity_old();
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "loop: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 2000; i++) {
+		temp = matrix::makeIdentity();
+	}
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "Using Memset: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+}
+
