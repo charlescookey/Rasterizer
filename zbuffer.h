@@ -1,6 +1,7 @@
 #pragma once
 
 #include <concepts>
+#include <immintrin.h>
 
 // Zbuffer class for managing depth values during rendering.
 // This class is template-constrained to only work with floating-point types (`float` or `double`).
@@ -46,11 +47,35 @@ public:
 
     // Clears the Z-buffer by setting all depth values to 1.0f,
     // which represents the farthest possible depth.
-    void clear() {
+    void clear_old() {
         for (unsigned int i = 0; i < width * height; i++) {
             buffer[i] = 1.0f; // Reset each depth value
         }
     }
+    
+    void check() {
+        int count = 0;
+        for (unsigned int i = 0; i < width * height; i++) {
+            if (buffer[i] == 1.0f) {
+                count++;
+            }
+        }
+        std::cout << "The count: "<<count << "\n";
+    }
+    
+    void clear() {
+        __m256 ones = _mm256_set1_ps(1.0f);
+        int size = width * height;
+        size_t i = 0;
+        for (; i + 7 < size; i += 8) {
+            _mm256_store_ps(buffer + i, ones);
+        }
+
+        for (; i < size; i++) {
+            buffer[i] = 1.0f;
+        }
+    }
+
 
     // Destructor to clean up memory allocated for the Z-buffer.
     ~Zbuffer() {
