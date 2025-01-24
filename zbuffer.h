@@ -53,16 +53,6 @@ public:
         }
     }
     
-    void check() {
-        int count = 0;
-        for (unsigned int i = 0; i < width * height; i++) {
-            if (buffer[i] == 1.0f) {
-                count++;
-            }
-        }
-        std::cout << "The count: "<<count << "\n";
-    }
-    
     void clear() {
         __m256 ones = _mm256_set1_ps(1.0f);
         int size = width * height;

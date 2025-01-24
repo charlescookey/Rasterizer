@@ -136,17 +136,18 @@ void scene1() {
     bool running = true;
 
     std::vector<Mesh*> scene;
+    scene.reserve(40);
 
     // Create a scene of 40 cubes with random rotations
     for (unsigned int i = 0; i < 20; i++) {
         Mesh* m = new Mesh();
         *m = Mesh::makeCube(1.f);
         m->world = matrix::makeTranslation(-2.0f, 0.0f, (-3 * static_cast<float>(i))) * makeRandomRotation();
-        scene.push_back(m);
+        scene.emplace_back(m);
         m = new Mesh();
         *m = Mesh::makeCube(1.f);
         m->world = matrix::makeTranslation(2.0f, 0.0f, (-3 * static_cast<float>(i))) * makeRandomRotation();
-        scene.push_back(m);
+        scene.emplace_back(m);
     }
 
     float zoffset = 8.0f; // Initial camera Z-offset
@@ -196,9 +197,11 @@ void scene2() {
     Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
 
     std::vector<Mesh*> scene;
+    scene.reserve(49);
 
     struct rRot { float x; float y; float z; }; // Structure to store random rotation parameters
     std::vector<rRot> rotations;
+    rotations.reserve(48);
 
     RandomNumberGenerator& rng = RandomNumberGenerator::getInstance();
 
@@ -207,17 +210,17 @@ void scene2() {
         for (unsigned int x = 0; x < 8; x++) {
             Mesh* m = new Mesh();
             *m = Mesh::makeCube(1.f);
-            scene.push_back(m);
+            scene.emplace_back(m);
             m->world = matrix::makeTranslation(-7.0f + (static_cast<float>(x) * 2.f), 5.0f - (static_cast<float>(y) * 2.f), -8.f);
             rRot r{ rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f) };
-            rotations.push_back(r);
+            rotations.emplace_back(r);
         }
     }
 
     // Create a sphere and add it to the scene
     Mesh* sphere = new Mesh();
     *sphere = Mesh::makeSphere(1.0f, 10, 20);
-    scene.push_back(sphere);
+    scene.emplace_back(sphere);
     float sphereOffset = -6.f;
     float sphereStep = 0.1f;
     sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
@@ -263,12 +266,13 @@ void scene2() {
 int main() {
     // Uncomment the desired scene function to run
     //scene1();
-    //scene2();
+    scene2();
     //sceneTest(); 
 
     //redundantIdentityCall();
     //memsetOverLoops();
-    clearSIMD();
+    //clearSIMD();
+    //reserveVector();
     
 
     return 0;

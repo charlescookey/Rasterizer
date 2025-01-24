@@ -58,7 +58,6 @@ void clearSIMD() {
 	std::cout << "SIMD clear: "
 		<< std::chrono::duration<double, std::milli>(end - start).count()
 		<< "ms...\n";
-	zbuffer.check();
 
 	start = std::chrono::high_resolution_clock::now();
 	for (int i = 0; i < 2000; i++) {
@@ -68,5 +67,32 @@ void clearSIMD() {
 	std::cout << "Loop Clear: "
 		<< std::chrono::duration<double, std::milli>(end - start).count()
 		<< "ms...\n";
-	zbuffer2.check();
+}
+
+void reserveVector() {
+
+	std::vector<Mesh*> scene;
+			
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		Mesh* m = new Mesh();
+		*m = Mesh::makeRectangle(1.f, 1.f, 5.f,5.f);
+		scene.push_back(m);
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Using reserve: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+	scene.clear();
+
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		Mesh* m = new Mesh();
+		*m = Mesh::makeRectangle_old(1.f, 1.f, 5.f, 5.f);
+		scene.push_back(m);
+	}
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "No reserve: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
 }

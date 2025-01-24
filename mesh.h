@@ -58,6 +58,11 @@ public:
     // - normal: Normal vector for the vertex
     void addVertex(const vec4& vertex, const vec4& normal) {
         Vertex v = { vertex, normal, col };
+        vertices.emplace_back(v);
+    }
+    
+    void addVertex_old(const vec4& vertex, const vec4& normal) {
+        Vertex v = { vertex, normal, col };
         vertices.push_back(v);
     }
 
@@ -105,10 +110,42 @@ public:
         normal.normalise();
 
         // Add vertices with the calculated normal
+        mesh.vertices.reserve(4);
         mesh.addVertex(v1, normal);
         mesh.addVertex(v2, normal);
         mesh.addVertex(v3, normal);
         mesh.addVertex(v4, normal);
+
+        // Add two triangles forming the rectangle
+        mesh.triangles.reserve(2);
+        mesh.addTriangle(0, 2, 1);
+        mesh.addTriangle(0, 3, 2);
+
+        return mesh;
+    }
+    
+    static Mesh makeRectangle_old(float x1, float y1, float x2, float y2) {
+        Mesh mesh;
+        mesh.vertices.clear();
+        mesh.triangles.clear();
+
+        // Define the four corners of the rectangle
+        vec4 v1(x1, y1, 0);
+        vec4 v2(x2, y1, 0);
+        vec4 v3(x2, y2, 0);
+        vec4 v4(x1, y2, 0);
+
+        // Calculate the normal vector using the cross product of two edges
+        vec4 edge1 = v2 - v1;
+        vec4 edge2 = v4 - v1;
+        vec4 normal = vec4::cross(edge1, edge2);
+        normal.normalise();
+
+        // Add vertices with the calculated normal
+        mesh.addVertex_old(v1, normal);
+        mesh.addVertex_old(v2, normal);
+        mesh.addVertex_old(v3, normal);
+        mesh.addVertex_old(v4, normal);
 
         // Add two triangles forming the rectangle
         mesh.addTriangle(0, 2, 1);
@@ -157,6 +194,9 @@ public:
             {2, 3, 7, 6}
         };
 
+        mesh.vertices.reserve(24);
+        mesh.triangles.reserve(12);
+
         for (int i = 0; i < 6; ++i) {
             int v0 = faceIndices[i][0];
             int v1 = faceIndices[i][1];
@@ -191,6 +231,9 @@ public:
 
         mesh.vertices.clear();
         mesh.triangles.clear();
+
+        mesh.vertices.reserve((latitudeDivisions+1) * (longitudeDivisions+1));
+        mesh.triangles.reserve(latitudeDivisions * longitudeDivisions * 2);
 
         // Create vertices
         for (int lat = 0; lat <= latitudeDivisions; ++lat) {
