@@ -143,8 +143,33 @@ public:
     // Input Variables:
     // - x, y, z: Rotation angles in radians around each axis
     // Returns the composite rotation matrix
-    static matrix makeRotateXYZ(float x, float y, float z) {
+    static matrix makeRotateXYZ_old(float x, float y, float z) {
         return matrix::makeRotateX(x) * matrix::makeRotateY(y) * matrix::makeRotateZ(z);
+    }
+
+    static matrix makeRotateXYZ(float x, float y, float z) {
+        matrix m;
+        float cosx = std::cos(x);
+        float cosy = std::cos(y);
+        float cosz = std::cos(z);
+
+        float sinx = std::sin(x);
+        float siny = std::sin(y);
+        float sinz = std::sin(z);
+
+        m.m[0][0] = cosy * cosz;
+        m.m[0][1] = -cosy * sinz;
+        m.m[0][2] = siny;
+
+        m.m[1][0] = (siny * sinx * cosz) + (cosx * sinz);
+        m.m[1][1] = -(siny * sinx * sinz) + (cosx * cosz);
+        m.m[1][2] = -sinx * cosy;
+
+        m.m[2][0] = -(cosx * siny * cosz) + (sinx * sinz);
+        m.m[2][1] = (cosx * siny * sinz) + (sinx * cosz);
+        m.m[2][2] = cosx * cosy;
+
+        return m;
     }
 
     // Create a scaling matrix

@@ -96,3 +96,37 @@ void reserveVector() {
 		<< std::chrono::duration<double, std::milli>(end - start).count()
 		<< "ms...\n";
 }
+
+void unrollRotateXYZ() {
+	RandomNumberGenerator& rng = RandomNumberGenerator::getInstance();
+	struct rRot { float x; float y; float z; }; // Structure to store random rotation parameters
+	std::vector<rRot> rotations;
+
+	matrix world = matrix::makeTranslation(4, 0.f, -6.f);
+	matrix temp;
+
+	// Create a grid of cubes with random rotations
+	for (unsigned int y = 0; y < 200; y++) {
+		rRot r{ rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f) };
+		rotations.emplace_back(r);
+	}
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		temp = world * matrix::makeRotateXYZ(rotations[i].x, rotations[i].y, rotations[i].z);
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Using unrolled: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+
+
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		temp = world * matrix::makeRotateXYZ_old(rotations[i].x, rotations[i].y, rotations[i].z);
+	}
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "multiplying x,y,z: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+}
