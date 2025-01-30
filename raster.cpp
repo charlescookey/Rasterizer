@@ -25,7 +25,7 @@
 // - mesh: Pointer to the Mesh object containing vertices and triangles to render.
 // - camera: Matrix representing the camera's transformation.
 // - L: Light object representing the lighting parameters.
-void render(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
+void render_old(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
     // Combine perspective, camera, and world transformations for the mesh
     matrix p = renderer.perspective * camera * mesh->world;
 
@@ -57,6 +57,44 @@ void render(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
 
         // Create a triangle object and render it
         triangle tri(t[0], t[1], t[2]);
+        tri.draw(renderer, L, mesh->ka, mesh->kd);
+    }
+}
+
+void render(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
+    // Compute full transformation matrix
+    matrix p = renderer.perspective * camera * mesh->world;
+
+    size_t numVertices = mesh->vertices.size();
+    std::vector<Vertex> transformations(numVertices);
+    float height = static_cast<float>(renderer.canvas.getWidth());
+    float width = static_cast<float>(renderer.canvas.getHeight());
+
+    // Step 1: Transform each unique vertex once
+    for (size_t i = 0; i < numVertices; i++) {
+        transformations[i].p = p * mesh->vertices[i].p;
+        transformations[i].p.divideW();
+
+        transformations[i].normal = mesh->world * mesh->vertices[i].normal;
+        transformations[i].normal.normalise();
+
+        transformations[i].p[0] = (transformations[i].p[0] + 1.f) * 0.5f * width;
+        transformations[i].p[1] = (transformations[i].p[1] + 1.f) * 0.5f * height;
+        transformations[i].p[1] = height - transformations[i].p[1]; // Invert y-axis
+
+        transformations[i].rgb = mesh->vertices[i].rgb;
+    }
+
+    // Step 2: Process triangles 
+    for (triIndices& ind : mesh->triangles) {
+        // Directly pass transformed vertices instead of copying them into t[3]
+        if (fabs(transformations[ind.v[0]].p[2]) > 1.0f ||
+            fabs(transformations[ind.v[1]].p[2]) > 1.0f ||
+            fabs(transformations[ind.v[2]].p[2]) > 1.0f) continue;
+
+        // Create the triangle directly with transformed vertices
+        triangle tri(transformations[ind.v[0]], transformations[ind.v[1]], transformations[ind.v[2]]);
+
         tri.draw(renderer, L, mesh->ka, mesh->kd);
     }
 }
@@ -274,6 +312,7 @@ int main() {
     //clearSIMD();
     //reserveVector();
     //unrollRotateXYZ();
+    //precomputeTranformations();
     
 
     return 0;

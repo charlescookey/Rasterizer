@@ -130,3 +130,40 @@ void unrollRotateXYZ() {
 		<< std::chrono::duration<double, std::milli>(end - start).count()
 		<< "ms...\n";
 }
+
+void render_old(Renderer&, Mesh*, matrix&, Light&);
+void render(Renderer&, Mesh*, matrix&, Light&);
+
+void precomputeTranformations() {
+	Renderer renderer;
+	matrix camera;
+	Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+
+	//Mesh Cube = Mesh::makeCube(1.f);
+	Mesh Cube = Mesh::makeSphere(1.0f, 10, 20);
+	Cube.world = matrix::makeTranslation(-7.0f + (static_cast<float>(1) * 2.f), 5.0f - (static_cast<float>(1) * 2.f), -8.f);
+
+	renderer.clear();
+
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 300; i++) {
+		render(renderer, &Cube, camera, L);
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Precomputed Transformation: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+
+	renderer.clear();
+
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 300; i++) {
+		render_old(renderer, &Cube, camera, L);
+	}
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "Computing transformation on the go: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+
+}
