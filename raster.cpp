@@ -67,8 +67,8 @@ void render(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
 
     size_t numVertices = mesh->vertices.size();
     std::vector<Vertex> transformations(numVertices);
-    float height = static_cast<float>(renderer.canvas.getWidth());
-    float width = static_cast<float>(renderer.canvas.getHeight());
+    float width = static_cast<float>(renderer.canvas.getWidth());
+    float height = static_cast<float>(renderer.canvas.getHeight());
 
     // Step 1: Transform each unique vertex once
     for (size_t i = 0; i < numVertices; i++) {
