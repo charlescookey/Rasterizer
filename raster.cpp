@@ -105,6 +105,7 @@ void sceneTest() {
     Renderer renderer;
     // create light source {direction, diffuse intensity, ambient intensity}
     Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
     // camera is just a matrix
     matrix camera;// = matrix::makeIdentity(); // Initialize the camera with identity matrix
 
@@ -170,6 +171,7 @@ void scene1() {
     Renderer renderer;
     matrix camera;
     Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
 
     bool running = true;
 
@@ -233,6 +235,7 @@ void scene2() {
     Renderer renderer;
     matrix camera;// = matrix::makeIdentity();//UNROLL??//ALSO USE RESEVER SO IT DOESNT CREATE AND CAPACITY INSCREWASE
     Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
 
     std::vector<Mesh*> scene;
     scene.reserve(49);
