@@ -307,7 +307,7 @@ void scene2() {
 int main() {
     // Uncomment the desired scene function to run
     //scene1();
-    scene2();
+    //scene2();
     //sceneTest(); 
 
     //redundantIdentityCall();
@@ -318,7 +318,7 @@ int main() {
     //precomputeTranformations();
     //unrollMultiplication();
     //usingMove();
-    
+    avoidInterpolations();
 
     return 0;
 }

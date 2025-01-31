@@ -223,3 +223,53 @@ void usingMove() {
 		<< std::chrono::duration<double, std::milli>(end - start).count()
 		<< "ms...\n";
 }
+
+void avoidInterpolations() {
+	Renderer renderer;
+	Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+	L.omega_i.normalise();
+	matrix camera;
+	Mesh mesh = Mesh::makeSphere(1.0f, 10, 20);
+
+	matrix p = renderer.perspective * camera * mesh.world;
+
+	Vertex v1, v2, v3;
+
+	// Set positions in normalized device coordinates (-1 to 1 range)
+	v1.p = vec4(-0.5f, -0.5f, 0.5f, 1.0f);
+	v2.p = vec4(0.5f, -0.5f, 0.5f, 1.0f);
+	v3.p = vec4(0.0f, 0.5f, 0.5f, 1.0f);
+
+	// Set normals (facing towards the camera)
+	v1.normal = vec4(0.0f, 0.0f, 1.0f, 0.0f);
+	v2.normal = vec4(0.0f, 0.0f, 1.0f, 0.0f);
+	v3.normal = vec4(0.0f, 0.0f, 1.0f, 0.0f);
+
+	// Set colors (RGB)
+	v1.rgb = colour(255, 0, 0);   // Red
+	v2.rgb = colour(0, 255, 0);   // Green
+	v3.rgb = colour(0, 0, 255);   // Blue
+
+	// Create triangle
+	triangle tri(v1, v2, v3);
+
+
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		tri.draw(renderer, L, 0.75f, 0.75f);
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Avoid extra interpolation "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		tri.draw2(renderer, L, 0.75f, 0.75f);
+	}
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "interpolated before skip "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+}
