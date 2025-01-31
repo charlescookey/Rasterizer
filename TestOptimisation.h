@@ -167,3 +167,33 @@ void precomputeTranformations() {
 		<< "ms...\n";
 
 }
+
+void unrollMultiplication() {
+	matrix test = matrix::makeRotateXYZ(0.0139100105, 0.0927862525, 0.09);
+	matrix test2 = matrix::makeRotateXYZ(0.0139100105, 0.0927862525, 0.0777);
+
+
+	matrix mull1;
+	matrix mull2;;
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		mull1 = test * test2;
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Using unrolled: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+
+
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		mull2 = test % test2;
+	}
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "using loops "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+}
+
+}

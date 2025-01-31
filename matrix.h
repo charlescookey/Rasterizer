@@ -46,7 +46,7 @@ public:
     // Input Variables:
     // - mx: Another matrix to multiply with
     // Returns the resulting matrix
-    matrix operator * (const matrix& mx) const {
+    matrix operator % (const matrix& mx) const {
         matrix ret;
         for (int row = 0; row < 4; ++row) {
             for (int col = 0; col < 4; ++col) {
@@ -57,6 +57,28 @@ public:
                     a[row * 4 + 3] * mx.a[3 * 4 + col];
             }
         }
+        return ret;
+    }
+
+    matrix operator *(const matrix& mx) const
+    {
+        matrix ret;
+        ret.a[0] = mx.a[0] * a[0] + mx.a[4] * a[1] + mx.a[8] * a[2] + mx.a[12] * a[3];
+        ret.a[1] = mx.a[1] * a[0] + mx.a[5] * a[1] + mx.a[9] * a[2] + mx.a[13] * a[3];
+        ret.a[2] = mx.a[2] * a[0] + mx.a[6] * a[1] + mx.a[10] * a[2] + mx.a[14] * a[3];
+        ret.a[3] = mx.a[3] * a[0] + mx.a[7] * a[1] + mx.a[11] * a[2] + mx.a[15] * a[3];
+        ret.a[4] = mx.a[0] * a[4] + mx.a[4] * a[5] + mx.a[8] * a[6] + mx.a[12] * a[7];
+        ret.a[5] = mx.a[1] * a[4] + mx.a[5] * a[5] + mx.a[9] * a[6] + mx.a[13] * a[7];
+        ret.a[6] = mx.a[2] * a[4] + mx.a[6] * a[5] + mx.a[10] * a[6] + mx.a[14] * a[7];
+        ret.a[7] = mx.a[3] * a[4] + mx.a[7] * a[5] + mx.a[11] * a[6] + mx.a[15] * a[7];
+        ret.a[8] = mx.a[0] * a[8] + mx.a[4] * a[9] + mx.a[8] * a[10] + mx.a[12] * a[11];
+        ret.a[9] = mx.a[1] * a[8] + mx.a[5] * a[9] + mx.a[9] * a[10] + mx.a[13] * a[11];
+        ret.a[10] = mx.a[2] * a[8] + mx.a[6] * a[9] + mx.a[10] * a[10] + mx.a[14] * a[11];
+        ret.a[11] = mx.a[3] * a[8] + mx.a[7] * a[9] + mx.a[11] * a[10] + mx.a[15] * a[11];
+        ret.a[12] = mx.a[0] * a[12] + mx.a[4] * a[13] + mx.a[8] * a[14] + mx.a[12] * a[15];
+        ret.a[13] = mx.a[1] * a[12] + mx.a[5] * a[13] + mx.a[9] * a[14] + mx.a[13] * a[15];
+        ret.a[14] = mx.a[2] * a[12] + mx.a[6] * a[13] + mx.a[10] * a[14] + mx.a[14] * a[15];
+        ret.a[15] = mx.a[3] * a[12] + mx.a[7] * a[13] + mx.a[11] * a[14] + mx.a[15] * a[15];
         return ret;
     }
 
