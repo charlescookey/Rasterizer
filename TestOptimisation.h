@@ -196,4 +196,30 @@ void unrollMultiplication() {
 		<< "ms...\n";
 }
 
+void usingMove() {
+	matrix test = matrix::makeRotateXYZ(0.0139100105, 0.0927862525, 0.09);
+	matrix test2 = matrix::makeRotateXYZ(0.0139100105, 0.0927862525, 0.0777);
+
+
+
+	auto start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		test = test * test2;
+	}
+	auto end = std::chrono::high_resolution_clock::now();
+	std::cout << "Using a = a * b: "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
+
+	test = matrix::makeRotateXYZ(0.0139100105, 0.0927862525, 0.09);
+	test2 = matrix::makeRotateXYZ(0.0139100105, 0.0927862525, 0.0777);
+
+	start = std::chrono::high_resolution_clock::now();
+	for (int i = 0; i < 200; i++) {
+		test *= test2;
+	}
+	end = std::chrono::high_resolution_clock::now();
+	std::cout << "using a *= b "
+		<< std::chrono::duration<double, std::milli>(end - start).count()
+		<< "ms...\n";
 }

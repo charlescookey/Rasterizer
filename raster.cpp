@@ -203,8 +203,8 @@ void scene1() {
         camera = matrix::makeTranslation(0, 0, -zoffset); // Update camera position
 
         // Rotate the first two cubes in the scene
-        scene[0]->world = scene[0]->world * matrix::makeRotateXYZ(0.1f, 0.1f, 0.0f);
-        scene[1]->world = scene[1]->world * matrix::makeRotateXYZ(0.0f, 0.1f, 0.2f);
+        scene[0]->world *=  matrix::makeRotateXYZ(0.1f, 0.1f, 0.0f);
+        scene[1]->world *=  matrix::makeRotateXYZ(0.0f, 0.1f, 0.2f);
 
         if (renderer.canvas.keyPressed(VK_ESCAPE)) break;
 
@@ -274,7 +274,7 @@ void scene2() {
 
         // Rotate each cube in the grid
         for (unsigned int i = 0; i < rotations.size(); i++)
-            scene[i]->world = scene[i]->world * matrix::makeRotateXYZ(rotations[i].x, rotations[i].y, rotations[i].z);
+            scene[i]->world *=  matrix::makeRotateXYZ(rotations[i].x, rotations[i].y, rotations[i].z);
 
         // Move the sphere back and forth
         sphereOffset += sphereStep;
@@ -313,6 +313,8 @@ int main() {
     //reserveVector();
     //unrollRotateXYZ();
     //precomputeTranformations();
+    //unrollMultiplication();
+    //usingMove();
     
 
     return 0;
