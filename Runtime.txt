@@ -477,3 +477,33 @@ cusotm 10
 2 :14896.5ms
 3 :14838.4ms
 
+CUSTOM SCENE PARALLEL 2
+custom 1
+1 :14479.3ms
+
+custom 2
+1 :21886.1ms
+
+custom 3
+1 :19078.6ms
+
+custom 4
+1 :19603.4ms
+
+custom 5
+1 :19670.3ms
+
+custom 6
+1 :19056.1ms
+
+cusotm 7
+1 :19808.1ms
+
+custom 8
+1 :21278.1ms
+
+cusotm 9
+1 :21910.6ms
+
+cusotm 10
+1 :22102.6ms
