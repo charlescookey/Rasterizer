@@ -5,6 +5,7 @@
 #include "GamesEngineeringBase.h" // Include the GamesEngineeringBase header
 #include <algorithm>
 #include <chrono>
+#include <thread>
 
 #include <cmath>
 #include "matrix.h"
@@ -18,6 +19,9 @@
 
 
 #include "TestOptimisation.h"
+
+
+#define numberThreads 10
 
 // Main rendering function that processes a mesh, transforms its vertices, applies lighting, and draws triangles on the canvas.
 // Input Variables:
@@ -61,12 +65,13 @@ void render_old(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
     }
 }
 
+std::vector<Vertex> transformations(400); 
+
 void render(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
     // Compute full transformation matrix
     matrix p = renderer.perspective * camera * mesh->world;
 
     size_t numVertices = mesh->vertices.size();
-    std::vector<Vertex> transformations(numVertices);
     float width = static_cast<float>(renderer.canvas.getWidth());
     float height = static_cast<float>(renderer.canvas.getHeight());
 
@@ -86,6 +91,129 @@ void render(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
     }
 
     // Step 2: Process triangles 
+    for (triIndices& ind : mesh->triangles) {
+        // Directly pass transformed vertices instead of copying them into t[3]
+        if (fabs(transformations[ind.v[0]].p[2]) > 1.0f ||
+            fabs(transformations[ind.v[1]].p[2]) > 1.0f ||
+            fabs(transformations[ind.v[2]].p[2]) > 1.0f) continue;
+
+        // Create the triangle directly with transformed vertices
+        triangle tri(transformations[ind.v[0]], transformations[ind.v[1]], transformations[ind.v[2]]);
+
+        tri.draw(renderer, L, mesh->ka, mesh->kd);
+    }
+}
+
+#include "test.h"
+
+void transformVertex(Vertex& transform, Vertex& other, matrix &p, matrix &world, float height, float width) {
+    transform.p = p * other.p;
+    transform.p.divideW();
+
+    transform.normal = world * other.normal;
+    transform.normal.normalise();
+
+    transform.p[0] = (transform.p[0] + 1.f) * 0.5f * width;
+    transform.p[1] = (transform.p[1] + 1.f) * 0.5f * height;
+    transform.p[1] = height - transform.p[1]; // Invert y-axis
+
+    transform.rgb = other.rgb;
+}
+
+void transformVerticesRange(std::vector<Vertex>& transformations, std::vector<Vertex>& vertices, matrix& p, matrix& world, float height, float width, size_t start, size_t end) {
+    for (size_t i = start; i < end; i++) {
+        transformVertex(transformations[i], vertices[i], p, world, height, width);
+    }
+}
+
+void render_mt_pool(Renderer& renderer, Mesh* mesh,  matrix& camera,  Light& L, ThreadPool& pool) {
+    // Compute full transformation matrix
+    matrix p = renderer.perspective * camera * mesh->world;
+
+    size_t numVertices = mesh->vertices.size();
+    std::vector<Vertex> transformations(numVertices);
+    float width = static_cast<float>(renderer.canvas.getWidth());
+    float height = static_cast<float>(renderer.canvas.getHeight());
+
+    int middle = numVertices / 2;
+
+    //std::thread receivingThread = std::thread(transformVerticesRange, std::ref(transformations), &mesh->vertices, &p, &mesh->world, height, width, 0, numVertices);
+
+    auto future = pool.enqueue([&transformations, &mesh, &p, height, width, numVertices] {
+        transformVerticesRange(transformations, mesh->vertices, p, mesh->world, height, width, 0, numVertices);
+        });
+    future.get();
+    //transformVerticesRange(transformations, mesh->vertices, p, mesh->world, height, width, 0, numVertices);
+    //receivingThread.join();
+
+    for (triIndices& ind : mesh->triangles) {
+        // Directly pass transformed vertices instead of copying them into t[3]
+        if (fabs(transformations[ind.v[0]].p[2]) > 1.0f ||
+            fabs(transformations[ind.v[1]].p[2]) > 1.0f ||
+            fabs(transformations[ind.v[2]].p[2]) > 1.0f) continue;
+
+        // Create the triangle directly with transformed vertices
+        triangle tri(transformations[ind.v[0]], transformations[ind.v[1]], transformations[ind.v[2]]);
+
+        tri.draw(renderer, L, mesh->ka, mesh->kd);
+    }
+}
+
+void render_mt_pool_chunk(Renderer& renderer, Mesh* mesh,  matrix& camera,  Light& L, ThreadPool& pool) {
+    // Compute full transformation matrix
+    matrix p = renderer.perspective * camera * mesh->world;
+
+    size_t numVertices = mesh->vertices.size();
+    std::vector<Vertex> transformations(numVertices);
+    float width = static_cast<float>(renderer.canvas.getWidth());
+    float height = static_cast<float>(renderer.canvas.getHeight());
+
+    int middle = numVertices / 2;
+    std::vector<std::future<void>> voidResults;
+    //std::thread receivingThread = std::thread(transformVerticesRange, std::ref(transformations), &mesh->vertices, &p, &mesh->world, height, width, 0, numVertices);
+    size_t chunkSize = numVertices / numberThreads;
+    for (int i = 0; i < numberThreads; i++) {
+        size_t start = i * chunkSize;
+        size_t end = (i == numberThreads - 1) ? numVertices : start + chunkSize;
+
+        voidResults.emplace_back(pool.enqueue([&transformations, &mesh, &p, height, width, numVertices] {
+            transformVerticesRange(transformations, mesh->vertices, p, mesh->world, height, width, 0, numVertices);
+            }));
+    }
+
+    for (auto& t : voidResults) t.get();
+
+    for (triIndices& ind : mesh->triangles) {
+        // Directly pass transformed vertices instead of copying them into t[3]
+        if (fabs(transformations[ind.v[0]].p[2]) > 1.0f ||
+            fabs(transformations[ind.v[1]].p[2]) > 1.0f ||
+            fabs(transformations[ind.v[2]].p[2]) > 1.0f) continue;
+
+        // Create the triangle directly with transformed vertices
+        triangle tri(transformations[ind.v[0]], transformations[ind.v[1]], transformations[ind.v[2]]);
+
+        tri.draw(renderer, L, mesh->ka, mesh->kd);
+    }
+}
+
+void render_mt_chunk(Renderer& renderer, Mesh* mesh, matrix& camera, Light& L) {
+    // Compute full transformation matrix
+    matrix p = renderer.perspective * camera * mesh->world;
+
+    size_t numVertices = mesh->vertices.size();
+    std::vector<Vertex> transformations(numVertices);
+    float width = static_cast<float>(renderer.canvas.getWidth());
+    float height = static_cast<float>(renderer.canvas.getHeight());
+
+    std::vector<std::thread> threads;
+    size_t chunkSize = numVertices / numberThreads;
+    for (int i = 0; i < numberThreads; i++) {
+        size_t start = i * chunkSize;
+        size_t end = (i == numberThreads - 1) ? numVertices : start + chunkSize;
+        threads.emplace_back(transformVerticesRange, std::ref(transformations), std::ref(mesh->vertices), std::ref(p), std::ref(mesh->world), height, width, start, end);
+    }
+    for (auto& t : threads) t.join();
+
     for (triIndices& ind : mesh->triangles) {
         // Directly pass transformed vertices instead of copying them into t[3]
         if (fabs(transformations[ind.v[0]].p[2]) > 1.0f ||
@@ -229,6 +357,167 @@ void scene1() {
         delete m;
 }
 
+void scene1_mt() {
+    //ThreadPool pool(numberThreads);
+    std::vector<std::thread> threads;
+    Renderer renderer;
+    matrix camera;
+    Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
+
+    bool running = true;
+
+    std::vector<Mesh*> scene;
+    scene.reserve(40);
+
+    // Create a scene of 40 cubes with random rotations
+    for (unsigned int i = 0; i < 20; i++) {
+        Mesh* m = new Mesh();
+        *m = Mesh::makeCube(1.f);
+        m->world = matrix::makeTranslation(-2.0f, 0.0f, (-3 * static_cast<float>(i))) * makeRandomRotation();
+        scene.emplace_back(m);
+        m = new Mesh();
+        *m = Mesh::makeCube(1.f);
+        m->world = matrix::makeTranslation(2.0f, 0.0f, (-3 * static_cast<float>(i))) * makeRandomRotation();
+        scene.emplace_back(m);
+    }
+
+    float zoffset = 8.0f; // Initial camera Z-offset
+    float step = -0.1f;  // Step size for camera movement
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::chrono::time_point<std::chrono::high_resolution_clock> end;
+    int cycle = 0;
+
+    std::vector<std::future<void>> voidResults;
+    size_t chunkSize = 0;
+    size_t Rotsize = 0;
+
+    // Main rendering loop
+    while (running) {
+        renderer.canvas.checkInput();
+        renderer.clear();
+
+        camera = matrix::makeTranslation(0, 0, -zoffset); // Update camera position
+
+        // Rotate the first two cubes in the scene
+        scene[0]->world *= matrix::makeRotateXYZ(0.1f, 0.1f, 0.0f);
+        scene[1]->world *= matrix::makeRotateXYZ(0.0f, 0.1f, 0.2f);
+
+        if (renderer.canvas.keyPressed(VK_ESCAPE)) break;
+
+        zoffset += step;
+        if (zoffset < -60.f || zoffset > 8.f) {
+            step *= -1.f;
+            if (++cycle % 2 == 0) {
+                end = std::chrono::high_resolution_clock::now();
+                std::cout << cycle / 2 << " :" << std::chrono::duration<double, std::milli>(end - start).count() << "ms\n";
+                start = std::chrono::high_resolution_clock::now();
+            }
+        }
+
+        std::atomic<size_t> RenderCounter(0);
+        chunkSize = scene.size() / numberThreads;
+        Rotsize = scene.size();
+        for (int j = 0; j < numberThreads; j++) {
+            threads.emplace_back([&scene, &renderer, Rotsize, &RenderCounter, &camera, &L] {
+                        size_t i;
+                        while ((i = RenderCounter.fetch_add(1, std::memory_order_relaxed)) < Rotsize) {
+                            render(renderer, scene[i], camera, L);
+                        };
+                        });
+                }
+        for (auto& t : threads) t.join();
+        threads.clear();
+
+        renderer.present();
+    }
+
+    for (auto& m : scene)
+        delete m;
+}
+
+void scene1_mt_pool() {
+    ThreadPool pool(numberThreads);
+    Renderer renderer;
+    matrix camera;
+    Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
+
+    bool running = true;
+
+    std::vector<Mesh*> scene;
+    scene.reserve(40);
+
+    // Create a scene of 40 cubes with random rotations
+    for (unsigned int i = 0; i < 20; i++) {
+        Mesh* m = new Mesh();
+        *m = Mesh::makeCube(1.f);
+        m->world = matrix::makeTranslation(-2.0f, 0.0f, (-3 * static_cast<float>(i))) * makeRandomRotation();
+        scene.emplace_back(m);
+        m = new Mesh();
+        *m = Mesh::makeCube(1.f);
+        m->world = matrix::makeTranslation(2.0f, 0.0f, (-3 * static_cast<float>(i))) * makeRandomRotation();
+        scene.emplace_back(m);
+    }
+
+    float zoffset = 8.0f; // Initial camera Z-offset
+    float step = -0.1f;  // Step size for camera movement
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::chrono::time_point<std::chrono::high_resolution_clock> end;
+    int cycle = 0;
+
+    std::vector<std::future<void>> voidResults;
+    size_t chunkSize = 0;
+    size_t Rotsize = 0;
+
+    // Main rendering loop
+    while (running) {
+        renderer.canvas.checkInput();
+        renderer.clear();
+
+        camera = matrix::makeTranslation(0, 0, -zoffset); // Update camera position
+
+        // Rotate the first two cubes in the scene
+        scene[0]->world *= matrix::makeRotateXYZ(0.1f, 0.1f, 0.0f);
+        scene[1]->world *= matrix::makeRotateXYZ(0.0f, 0.1f, 0.2f);
+
+        if (renderer.canvas.keyPressed(VK_ESCAPE)) break;
+
+        zoffset += step;
+        if (zoffset < -60.f || zoffset > 8.f) {
+            step *= -1.f;
+            if (++cycle % 2 == 0) {
+                end = std::chrono::high_resolution_clock::now();
+                std::cout << cycle / 2 << " :" << std::chrono::duration<double, std::milli>(end - start).count() << "ms\n";
+                start = std::chrono::high_resolution_clock::now();
+            }
+        }
+
+        std::atomic<size_t> RenderCounter(0);
+        chunkSize = scene.size() / numberThreads;
+        Rotsize = scene.size();
+
+        for (int i = 0; i < numberThreads; i++) {
+            voidResults.emplace_back(pool.enqueue([&scene, &renderer, Rotsize, &RenderCounter, &camera, &L] {
+                size_t i;
+                while ((i = RenderCounter.fetch_add(1, std::memory_order_relaxed)) < Rotsize) {
+                    render(renderer, scene[i], camera, L);
+                };
+                }));
+        }
+
+        for (auto& t : voidResults) t.get();
+        voidResults.clear();
+
+        renderer.present();
+    }
+
+    for (auto& m : scene)
+        delete m;
+}
+
 // Scene with a grid of cubes and a moving sphere
 // No input variables
 void scene2() {
@@ -302,13 +591,409 @@ void scene2() {
         delete m;
 }
 
+void scene2_mt() {
+    ThreadPool pool(numberThreads);
+
+    Renderer renderer;
+    matrix camera;// = matrix::makeIdentity();//UNROLL??//ALSO USE RESEVER SO IT DOESNT CREATE AND CAPACITY INSCREWASE
+    Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
+
+    std::vector<Mesh*> scene;
+    scene.reserve(49);
+
+    struct rRot { float x; float y; float z; }; // Structure to store random rotation parameters
+    std::vector<rRot> rotations;
+    rotations.reserve(48);
+
+    RandomNumberGenerator& rng = RandomNumberGenerator::getInstance();
+
+    // Create a grid of cubes with random rotations
+    for (unsigned int y = 0; y < 6; y++) {
+        for (unsigned int x = 0; x < 8; x++) {
+            Mesh* m = new Mesh();
+            *m = Mesh::makeCube(1.f);
+            scene.emplace_back(m);
+            m->world = matrix::makeTranslation(-7.0f + (static_cast<float>(x) * 2.f), 5.0f - (static_cast<float>(y) * 2.f), -8.f);
+            rRot r{ rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f) };
+            rotations.emplace_back(r);
+        }
+    }
+
+    // Create a sphere and add it to the scene
+    Mesh* sphere = new Mesh();
+    *sphere = Mesh::makeSphere(1.0f, 10, 20);
+    scene.emplace_back(sphere);
+    float sphereOffset = -6.f;
+    float sphereStep = 0.1f;
+    sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::chrono::time_point<std::chrono::high_resolution_clock> end;
+    int cycle = 0;
+
+    bool running = true;
+    std::vector<std::future<void>> voidResults;
+    size_t chunkSize = 0;
+    size_t Rotsize = 0;
+
+    while (running) {
+        renderer.canvas.checkInput();
+        renderer.clear();
+
+        std::atomic<size_t> counter(0);
+        chunkSize = rotations.size() / numberThreads;
+        Rotsize = rotations.size();
+        for (int j = 0; j < numberThreads; j++) {
+            voidResults.emplace_back(pool.enqueue([&scene, &rotations, Rotsize, &counter] {
+                size_t i;
+                while ((i = counter.fetch_add(1, std::memory_order_relaxed)) < Rotsize) {
+                    scene[i]->world *= matrix::makeRotateXYZ(rotations[i].x, rotations[i].y, rotations[i].z);
+                };
+                }));
+        }
+
+        for (auto& t : voidResults) t.get();
+        voidResults.clear();
+
+        // Move the sphere back and forth
+        sphereOffset += sphereStep;
+        sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
+        if (sphereOffset > 6.0f || sphereOffset < -6.0f) {
+            sphereStep *= -1.f;
+            if (++cycle % 2 == 0) {
+                end = std::chrono::high_resolution_clock::now();
+                std::cout << cycle / 2 << " :" << std::chrono::duration<double, std::milli>(end - start).count() << "ms\n";
+                start = std::chrono::high_resolution_clock::now();
+            }
+        }
+
+        if (renderer.canvas.keyPressed(VK_ESCAPE)) break;
+
+        std::atomic<size_t> RenderCounter(0);
+        chunkSize = scene.size() / numberThreads;
+        Rotsize = scene.size();
+
+        for (int j = 0; j < numberThreads; j++) {
+            voidResults.emplace_back(pool.enqueue([&scene, &renderer, Rotsize, &RenderCounter, &camera, &L] {
+                size_t i;
+                while ((i = RenderCounter.fetch_add(1, std::memory_order_relaxed)) < Rotsize) {
+                    render(renderer, scene[i], camera, L);
+                };
+                }));
+        }
+
+        for (auto& t : voidResults) t.get();
+        voidResults.clear();
+
+        renderer.present();
+    }
+
+    for (auto& m : scene)
+        delete m;
+}
+
+void customScene() {
+    Renderer renderer;
+    matrix camera =  matrix::makeTranslation(0.f, 0.f, -10.f);;
+    Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
+
+    std::vector<Mesh*> scene;
+    scene.reserve(10001);
+
+    struct rRot { float x; float y; float z; }; // Structure to store random rotation parameters
+    std::vector<rRot> rotations;
+    rotations.reserve(1000);
+
+    RandomNumberGenerator& rng = RandomNumberGenerator::getInstance();
+
+    for (unsigned int z = 0; z < 10; z++) {          // 10 layers (z-axis)
+        for (unsigned int y = 0; y < 10; y++) {      // 10 rows (y-axis)
+            for (unsigned int x = 0; x < 10; x++) {  // 10 columns (x-axis)
+                Mesh* m = new Mesh();
+                *m = Mesh::makeCube(0.5f);            
+                scene.emplace_back(m);               
+
+                // Position the cube in a 10x10x10 grid
+                m->world = matrix::makeTranslation(
+                    -9.0f + (static_cast<float>(x) * 2.f),
+                    9.0f - (static_cast<float>(y) * 2.f),   
+                    -10.0f + (static_cast<float>(z) * 2.f)  
+                );
+                rRot r{ rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f) };
+                rotations.emplace_back(r);
+            }
+        }
+    }
+    // Create a sphere and add it to the scene
+    Mesh* sphere = new Mesh();
+    *sphere = Mesh::makeSphere(1.0f, 10, 20);
+    scene.emplace_back(sphere);
+    float sphereOffset = -15.f;
+    float sphereStep = 0.1f;
+    sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::chrono::time_point<std::chrono::high_resolution_clock> end;
+    int cycle = 0;
+
+    bool running = true;
+    std::vector<std::future<void>> voidResults;
+    while (running) {
+        renderer.canvas.checkInput();
+        renderer.clear();
+
+         //Rotate each cube in the grid
+        for (unsigned int i = 0; i < rotations.size(); i++)
+            scene[i]->world *= matrix::makeRotateXYZ(rotations[i].x, rotations[i].y, rotations[i].z);
+
+        // Move the sphere back and forth
+        sphereOffset += sphereStep;
+        sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
+        if (sphereOffset > 15.0f || sphereOffset < -15.0f) {
+            sphereStep *= -1.f;
+            if (++cycle % 2 == 0) {
+                end = std::chrono::high_resolution_clock::now();
+                std::cout << cycle / 2 << " :" << std::chrono::duration<double, std::milli>(end - start).count() << "ms\n";
+                start = std::chrono::high_resolution_clock::now();
+            }
+        }
+
+        if (renderer.canvas.keyPressed(VK_ESCAPE)) break;
+
+        for (auto& m : scene)
+            render(renderer, m, camera, L);
+
+        renderer.present();
+    }
+
+    for (auto& m : scene)
+        delete m;
+}
+
+void customScene_mt() {
+    ThreadPool pool(numberThreads);
+
+    Renderer renderer;
+    matrix camera = matrix::makeTranslation(0.f, 0.f, -10.f);
+    Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
+
+    std::vector<Mesh*> scene;
+    scene.reserve(10001);
+
+    struct rRot { float x; float y; float z; }; 
+    std::vector<rRot> rotations;
+    rotations.reserve(1000);
+
+    RandomNumberGenerator& rng = RandomNumberGenerator::getInstance();
+
+    for (unsigned int z = 0; z < 10; z++) {          // 10 layers (z-axis)
+        for (unsigned int y = 0; y < 10; y++) {      // 10 rows (y-axis)
+            for (unsigned int x = 0; x < 10; x++) {  // 10 columns (x-axis)
+                Mesh* m = new Mesh();
+                *m = Mesh::makeCube(0.5f);            // Create a cube
+                scene.emplace_back(m);               // Add the cube to the scene
+
+                // Position the cube in a 10x10x10 grid
+                m->world = matrix::makeTranslation(
+                    -9.0f + (static_cast<float>(x) * 2.f),
+                    9.0f - (static_cast<float>(y) * 2.f),   
+                    -10.0f + (static_cast<float>(z) * 2.f)  
+                );
+
+                // Add random rotations
+                rRot r{ rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f) };
+                rotations.emplace_back(r);
+            }
+        }
+    }
+
+    // Create a sphere and add it to the scene
+    Mesh* sphere = new Mesh();
+    *sphere = Mesh::makeSphere(1.0f, 10, 20);
+    scene.emplace_back(sphere);
+    float sphereOffset = -15.f;
+    float sphereStep = 0.1f;
+    sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::chrono::time_point<std::chrono::high_resolution_clock> end;
+    int cycle = 0;
+
+    bool running = true;
+    std::vector<std::future<void>> voidResults;
+    size_t chunkSize = 0;
+    size_t Rotsize = 0;
+    while (running) {
+        renderer.canvas.checkInput();
+        renderer.clear();
+
+         //Rotate each cube in the grid
+        std::atomic<size_t> counter(0);
+        chunkSize = rotations.size() / numberThreads;
+        Rotsize = rotations.size();
+        for (int j = 0; j < numberThreads; j++) {
+            voidResults.emplace_back(pool.enqueue([&scene, &rotations, Rotsize, &counter] {
+                size_t i;
+                while ((i = counter.fetch_add(1, std::memory_order_relaxed)) < Rotsize) {
+                    scene[i]->world *= matrix::makeRotateXYZ(rotations[i].x, rotations[i].y, rotations[i].z);
+                };
+                }));
+        }
+
+        for (auto& t : voidResults) t.get();
+        voidResults.clear();
+
+        // Move the sphere back and forth
+        sphereOffset += sphereStep;
+        sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
+        if (sphereOffset > 15.0f || sphereOffset < -15.0f) {
+            sphereStep *= -1.f;
+            if (++cycle % 2 == 0) {
+                end = std::chrono::high_resolution_clock::now();
+                std::cout << cycle / 2 << " :" << std::chrono::duration<double, std::milli>(end - start).count() << "ms\n";
+                start = std::chrono::high_resolution_clock::now();
+            }
+        }
+
+        if (renderer.canvas.keyPressed(VK_ESCAPE)) break;
+
+        for (auto& m : scene)
+            render(renderer, m, camera, L);
+
+        renderer.present();
+    }
+
+    for (auto& m : scene)
+        delete m;
+}
+
+void customScene_mt2() {
+    ThreadPool pool(numberThreads);
+
+    Renderer renderer;
+    matrix camera = matrix::makeTranslation(0.f, 0.f, -10.f);
+    Light L{ vec4(0.f, 1.f, 1.f, 0.f), colour(1.0f, 1.0f, 1.0f), colour(0.1f, 0.1f, 0.1f) };
+    L.omega_i.normalise();
+
+    std::vector<Mesh*> scene;
+    scene.reserve(10001);
+
+    struct rRot { float x; float y; float z; };
+    std::vector<rRot> rotations;
+    rotations.reserve(1000);
+
+    RandomNumberGenerator& rng = RandomNumberGenerator::getInstance();
+
+    for (unsigned int z = 0; z < 10; z++) {          // 10 layers (z-axis)
+        for (unsigned int y = 0; y < 10; y++) {      // 10 rows (y-axis)
+            for (unsigned int x = 0; x < 10; x++) {  // 10 columns (x-axis)
+                Mesh* m = new Mesh();
+                *m = Mesh::makeCube(0.5f);            // Create a cube
+                scene.emplace_back(m);               // Add the cube to the scene
+
+                // Position the cube in a 10x10x10 grid
+                m->world = matrix::makeTranslation(
+                    -9.0f + (static_cast<float>(x) * 2.f),
+                    9.0f - (static_cast<float>(y) * 2.f),
+                    -10.0f + (static_cast<float>(z) * 2.f)
+                );
+
+                // Add random rotations
+                rRot r{ rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f), rng.getRandomFloat(-.1f, .1f) };
+                rotations.emplace_back(r);
+            }
+        }
+    }
+
+    // Create a sphere and add it to the scene
+    Mesh* sphere = new Mesh();
+    *sphere = Mesh::makeSphere(1.0f, 10, 20);
+    scene.emplace_back(sphere);
+    float sphereOffset = -15.f;
+    float sphereStep = 0.1f;
+    sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
+
+    auto start = std::chrono::high_resolution_clock::now();
+    std::chrono::time_point<std::chrono::high_resolution_clock> end;
+    int cycle = 0;
+
+    bool running = true;
+    std::vector<std::future<void>> voidResults;
+    size_t chunkSize = 0;
+    size_t Rotsize = 0;
+    while (running) {
+        renderer.canvas.checkInput();
+        renderer.clear();
+
+        //Rotate each cube in the grid
+        std::atomic<size_t> counter(0);
+        chunkSize = rotations.size() / numberThreads;
+        Rotsize = rotations.size();
+        for (int j = 0; j < numberThreads; j++) {
+            voidResults.emplace_back(pool.enqueue([&scene, &rotations, Rotsize, &counter] {
+                size_t i;
+                while ((i = counter.fetch_add(1, std::memory_order_relaxed)) < Rotsize) {
+                    scene[i]->world *= matrix::makeRotateXYZ(rotations[i].x, rotations[i].y, rotations[i].z);
+                };
+                }));
+        }
+
+        for (auto& t : voidResults) t.get();
+        voidResults.clear();
+
+        // Move the sphere back and forth
+        sphereOffset += sphereStep;
+        sphere->world = matrix::makeTranslation(sphereOffset, 0.f, -6.f);
+        if (sphereOffset > 15.0f || sphereOffset < -15.0f) {
+            sphereStep *= -1.f;
+            if (++cycle % 2 == 0) {
+                end = std::chrono::high_resolution_clock::now();
+                std::cout << cycle / 2 << " :" << std::chrono::duration<double, std::milli>(end - start).count() << "ms\n";
+                start = std::chrono::high_resolution_clock::now();
+            }
+        }
+
+        if (renderer.canvas.keyPressed(VK_ESCAPE)) break;
+
+        std::atomic<size_t> RenderCounter(0);
+        chunkSize = scene.size() / numberThreads;
+        Rotsize = scene.size();
+
+        for (int j = 0; j < numberThreads; j++) {
+            voidResults.emplace_back(pool.enqueue([&scene, &renderer, Rotsize, &RenderCounter, &camera, &L] {
+                size_t i;
+                while ((i = RenderCounter.fetch_add(1, std::memory_order_relaxed)) < Rotsize) {
+                    render(renderer, scene[i], camera, L);
+                };
+                }));
+        }
+
+        for (auto& t : voidResults) t.get();
+        voidResults.clear();
+
+        renderer.present();
+    }
+
+    for (auto& m : scene)
+        delete m;
+}
+
 // Entry point of the application
 // No input variables
 int main() {
     // Uncomment the desired scene function to run
     //scene1();
+    //scene1_mt();
+    //scene1_mt_pool();
     //scene2();
-    //sceneTest(); 
+    //scene2_mt();
+    //sceneTest();
+    //customScene();
+    customScene_mt2();
+    //customScene_mt();
 
     //redundantIdentityCall();
     //memsetOverLoops();
@@ -318,7 +1003,7 @@ int main() {
     //precomputeTranformations();
     //unrollMultiplication();
     //usingMove();
-    avoidInterpolations();
+    //avoidInterpolations();
 
     return 0;
 }
