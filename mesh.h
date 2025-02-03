@@ -8,9 +8,11 @@
 
 // Represents a vertex in a 3D mesh, including its position, normal, and color
 struct Vertex {
-    vec4 p;         // Position of the vertex in 3D space
-    vec4 normal;    // Normal vector for the vertex
-    colour rgb;     // Color of the vertex
+    alignas(64) vec4 p;         // Position of the vertex in 3D space
+    alignas(64) vec4 normal;    // Normal vector for the vertex
+    alignas(64) colour rgb;     // Color of the vertex
+
+    char padding[64 - (sizeof(vec4) * 2 + sizeof(colour)) % 64];
 };
 
 // Stores indices of vertices that form a triangle in a mesh
